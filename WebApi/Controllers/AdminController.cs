@@ -65,4 +65,19 @@ public class AdminController : ControllerBase
     {
         return Ok(new { daemon = "ready", time = DateTime.UtcNow });
     }
+
+    [HttpGet("projections/progress")]
+    public async Task<IActionResult> GetProjectionProgress(CancellationToken ct)
+    {
+        await using var session = _store.LightweightSession();
+
+        var progress = await session.QueryAsync<ProjectionProgress>(
+            "select shard_name, last_seq_id, timestamp from mt_event_progression order by shard_name;"
+        );
+
+        return Ok(progress);
+    }
+
+    private record ProjectionProgress(string Shard_Name, long Last_Seq_Id, DateTime? Timestamp);
+
 }
