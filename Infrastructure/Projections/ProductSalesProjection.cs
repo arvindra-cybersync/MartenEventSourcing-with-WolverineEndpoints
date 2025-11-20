@@ -1,22 +1,38 @@
-﻿using Marten.Events.Projections;
-using Domain.Events;
+﻿using Domain.Events;
 using Infrastructure.ReadModels;
+using Marten.Events.Aggregation;
+using Marten.Events.Projections;
 
-namespace Infrastructure.Projections;
-
-public class ProductSalesProjection : MultiStreamProjection<ProductSales, Guid>
+public class ProductSalesProjection
+    : MultiStreamProjection<ProductSales, Guid>
 {
     public ProductSalesProjection()
     {
+        // Correct slicing key for multi-stream projections (Marten 8)
         Identity<ItemAdded>(e => e.ItemId);
+    }
 
-        ProjectEvent<ItemAdded>((view, @event) =>
+    // Create new document when stream starts
+    public ProductSales Create(ItemAdded e)
+        => new ProductSales
         {
-            view.Id = @event.ItemId;
-            view.ProductName = string.IsNullOrEmpty(view.ProductName) ? @event.Item : view.ProductName;
-            view.TotalQuantitySold += @event.Quantity;
-            view.LastSaleAt = @event.OccurredAt == default
-                ? DateTime.UtcNow : @event.OccurredAt;
-        });
+            Id = e.ItemId,
+            ProductName = e.Item,
+            TotalQuantitySold = e.Quantity,
+            LastSaleAt = e.OccurredAt == default
+                ? DateTime.UtcNow
+                : e.OccurredAt
+        };
+
+    // Update existing stream document
+    public void Apply(ItemAdded e, ProductSales view)
+    {
+        if (string.IsNullOrWhiteSpace(view.ProductName))
+            view.ProductName = e.Item;
+
+        view.TotalQuantitySold += e.Quantity;
+        view.LastSaleAt = e.OccurredAt == default
+            ? DateTime.UtcNow
+            : e.OccurredAt;
     }
 }

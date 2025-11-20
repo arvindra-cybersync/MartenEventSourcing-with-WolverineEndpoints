@@ -1,76 +1,91 @@
 ﻿using Domain.Events;
 
-namespace Domain.Aggregates;
-
-/// <summary>Aggregate root for an Order. Handles event application logic.</summary>
-public class OrderAggregate
+namespace Domain.Aggregates
 {
-    public Guid Id { get; private set; }
-    public Guid CustomerId { get; private set; }
-    public string CustomerName { get; private set; } = string.Empty;
-    public DateTime CreatedAt { get; private set; }
-    public bool IsShipped { get; private set; }
-    public List<(Guid ItemId, string Item, int Quantity)> Items { get; } = new();
-
-    // Create new order aggregate
-    public static OrderAggregate Create(Guid orderId, Guid customerId, string customerName)
+    /// <summary>
+    /// Event-sourced aggregate for Orders.
+    /// Version property mirrors the number of applied events (optional for projections/debugging).
+    /// </summary>
+    public class OrderAggregate
     {
-        var aggregate = new OrderAggregate();
-        var evt = new OrderCreated
+        public Guid Id { get; private set; }
+        public Guid CustomerId { get; private set; }
+        public string Description { get; private set; } = string.Empty;
+        public bool IsShipped { get; private set; }
+        public bool IsCancelled { get; private set; }
+
+        private readonly Dictionary<Guid, (string Name, int Quantity)> _items = new();
+        public IReadOnlyDictionary<Guid, (string Name, int Quantity)> Items => _items;
+
+        // Safe mirrored version for debugging/projections
+        public int Version { get; private set; } = 0;
+
+        public OrderAggregate() { }
+
+        // -------------------
+        // Event Appliers
+        // -------------------
+        public void Apply(OrderCreated e)
         {
-            OrderId = orderId,
-            CustomerId = customerId,
-            CustomerName = customerName,
-            CreatedAt = DateTime.UtcNow
-        };
-        aggregate.Apply(evt);
-        return aggregate;
-    }
+            Id = e.OrderId;
+            CustomerId = e.CustomerId;
+            Description = e.Description;
+            Version++;
+        }
 
-    public void AddItem(Guid itemId, string item, int quantity)
-    {
-        if (IsShipped)
-            throw new InvalidOperationException("Cannot add items to a shipped order.");
-
-        var evt = new ItemAdded
+        public void Apply(OrderItemAdded e)
         {
-            OrderId = Id,
-            ItemId = itemId,
-            Item = item,
-            Quantity = quantity
-        };
-        Apply(evt);
-    }
+            if (_items.TryGetValue(e.ItemId, out var existing))
+                _items[e.ItemId] = (existing.Name, existing.Quantity + e.Quantity);
+            else
+                _items[e.ItemId] = (e.ItemName, e.Quantity);
 
-    public void Ship()
-    {
-        if (IsShipped)
-            throw new InvalidOperationException("Order already shipped.");
+            Version++;
+        }
 
-        var evt = new OrderShipped
+        public void Apply(OrderShipped e)
         {
-            OrderId = Id,
-            ShippedAt = DateTime.UtcNow
-        };
-        Apply(evt);
-    }
+            IsShipped = true;
+            Version++;
+        }
 
-    // Apply event handlers
-    private void Apply(OrderCreated evt)
-    {
-        Id = evt.OrderId;
-        CustomerId = evt.CustomerId;
-        CustomerName = evt.CustomerName;
-        CreatedAt = evt.CreatedAt;
-    }
+        public void Apply(OrderCancelled e)
+        {
+            IsCancelled = true;
+            Version++;
+        }
 
-    private void Apply(ItemAdded evt)
-    {
-        Items.Add((evt.ItemId, evt.Item, evt.Quantity));
-    }
+        // -------------------
+        // Behavior Methods (produce events)
+        // -------------------
+        public static IEnumerable<object> Create(Guid orderId, Guid customerId, string description, DateTime occurredAt)
+        {
+            yield return new OrderCreated(orderId, customerId, description, occurredAt);
+        }
 
-    private void Apply(OrderShipped evt)
-    {
-        IsShipped = true;
+        public IEnumerable<object> AddItem(Guid itemId, string itemName, int quantity, DateTime occurredAt)
+        {
+            if (IsShipped) throw new InvalidOperationException("Order already shipped");
+            if (IsCancelled) throw new InvalidOperationException("Order cancelled");
+            if (quantity <= 0) throw new ArgumentException("Quantity must be > 0");
+
+            yield return new OrderItemAdded(Id, itemId, itemName, quantity, occurredAt);
+        }
+
+        public IEnumerable<object> Ship(DateTime occurredAt)
+        {
+            if (IsShipped) throw new InvalidOperationException("Order already shipped");
+            if (IsCancelled) throw new InvalidOperationException("Order cancelled");
+
+            yield return new OrderShipped(Id, occurredAt);
+        }
+
+        public IEnumerable<object> Cancel(string reason, DateTime occurredAt)
+        {
+            if (IsShipped) throw new InvalidOperationException("Can't cancel shipped order");
+            if (IsCancelled) throw new InvalidOperationException("Already cancelled");
+
+            yield return new OrderCancelled(Id, reason, occurredAt);
+        }
     }
 }

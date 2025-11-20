@@ -1,37 +1,48 @@
 ﻿using Domain.Events;
 using Infrastructure.ReadModels;
-using Marten;
 using Marten.Events.Aggregation;
+using System;
 
-namespace Infrastructure.Projections;
-
-/// <summary>
-/// Async projection that builds and maintains an OrderSummary read model from events.
-/// Compatible with Marten 7.x / 8.x.
-/// </summary>
-public class OrderSummaryProjection : SingleStreamProjection<OrderSummary, Guid>
+namespace Infrastructure.Projections
 {
-    public OrderSummaryProjection()
+    // TDoc = OrderSummary, TId = Guid
+    public class OrderSummaryProjection : SingleStreamProjection<OrderSummary, Guid>
     {
-        ProjectionName = "order_summary";
-    }
+        public OrderSummaryProjection()
+        {
+            // Optional: nothing needed here unless you want metadata 
+        }
+        // Create initial document when OrderCreated is seen
+        public OrderSummary Create(OrderCreated e) => new OrderSummary
+        {
+            Id = e.OrderId,
+            CustomerId = e.CustomerId,
+            Description = e.Description,
+            TotalItems = 0,
+            IsShipped = false,
+            IsCancelled = false,
+            UpdatedAt = e.OccurredAt
+        };
 
-    public void Apply(OrderSummary view, OrderCreated evt)
-    {
-        view.Id = evt.OrderId;
-        view.CustomerId = evt.CustomerId;
-        view.CustomerName = evt.CustomerName;
-        view.TotalItems = 0;
-        view.IsShipped = false;
-    }
+        // Apply item additions
+        public void Apply(OrderItemAdded e, OrderSummary doc)
+        {
+            doc.TotalItems += e.Quantity;
+            doc.UpdatedAt = e.OccurredAt;
+        }
 
-    public void Apply(OrderSummary view, ItemAdded evt)
-    {
-        view.TotalItems += evt.Quantity;
-    }
+        // Apply ship
+        public void Apply(OrderShipped e, OrderSummary doc)
+        {
+            doc.IsShipped = true;
+            doc.UpdatedAt = e.OccurredAt;
+        }
 
-    public void Apply(OrderSummary view, OrderShipped evt)
-    {
-        view.IsShipped = true;
+        // Apply cancellation
+        public void Apply(OrderCancelled e, OrderSummary doc)
+        {
+            doc.IsCancelled = true;
+            doc.UpdatedAt = e.OccurredAt;
+        }
     }
 }

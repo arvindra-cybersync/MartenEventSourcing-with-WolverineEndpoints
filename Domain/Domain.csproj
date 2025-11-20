@@ -6,4 +6,22 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="Entities\**" />
+    <EmbeddedResource Remove="Entities\**" />
+    <None Remove="Entities\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Commands\AddItemHandler.cs" />
+    <Compile Remove="Commands\CreateOrderHandler.cs" />
+    <Compile Remove="Commands\ShipOrderHandler.cs" />
+    <Compile Remove="Events\OrderCreated.cs" />
+    <Compile Remove="Events\OrderShipped.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Marten" Version="8.15.4" />
+  </ItemGroup>
+
 </Project>

@@ -6,11 +6,16 @@ public class Order
 {
     public Guid Id { get; private set; }
     public string CustomerName { get; private set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
     public List<string> Items { get; private set; } = new();
     public bool IsShipped { get; private set; }
 
     // Default constructor required by Marten
     public Order() { }
+
+    public record CreateOrder(string Description);
+
+    public record OrderCreated1(Guid Id);
 
     public static Order Create(Guid id, string customerName)
     {

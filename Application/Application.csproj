@@ -7,7 +7,28 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Marten" Version="8.14.0" />
+    <Compile Remove="Interfaces\**" />
+    <Compile Remove="Services\**" />
+    <EmbeddedResource Remove="Interfaces\**" />
+    <EmbeddedResource Remove="Services\**" />
+    <None Remove="Interfaces\**" />
+    <None Remove="Services\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Handlers\LonghandOrderHandler.cs" />
+    <Compile Remove="Handlers\OrderHandler.cs" />
+    <Compile Remove="Handlers\OrderHandler2.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Marten" Version="8.15.4" />
+    <PackageReference Include="Marten.AspNetCore" Version="8.15.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.0" />
+    <PackageReference Include="Uno.Core" Version="4.1.1" />
+    <PackageReference Include="Weasel.Postgresql" Version="8.3.0" />
+    <PackageReference Include="WolverineFx" Version="5.2.0" />
+    <PackageReference Include="WolverineFx.Marten" Version="5.2.0" />
   </ItemGroup>
 
   <ItemGroup>

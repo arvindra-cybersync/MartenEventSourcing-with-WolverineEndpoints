@@ -1,49 +1,39 @@
-﻿using Infrastructure.Projections;
-using Infrastructure.ReadModels;
-using Infrastructure.Repositories;
+﻿using Infrastructure.ReadModels;
 using Marten;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/orders")]
 public class OrdersController : ControllerBase
 {
-    private readonly OrderRepository _repository;
-    private readonly IQuerySession _querySession;
+    private readonly IQuerySession _query;
 
-    public OrdersController(OrderRepository repository, IQuerySession querySession)
-    {
-        _repository = repository;
-        _querySession = querySession;
-    }
+    public OrdersController(IQuerySession query) => _query = query;
 
-    [HttpPost("create")]
-    public async Task<IActionResult> Create(Guid customerId, string customerName)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Get(Guid id)
     {
-        var orderId = await _repository.CreateOrderAsync(customerId, customerName);
-        return Ok(new { orderId });
-    }
-
-    [HttpPost("{orderId}/add-item")]
-    public async Task<IActionResult> AddItem(Guid orderId, string item, int quantity)
-    {
-        await _repository.AddItemAsync(orderId, item, quantity);
-        return Ok();
-    }
-
-    [HttpPost("{orderId}/ship")]
-    public async Task<IActionResult> Ship(Guid orderId)
-    {
-        await _repository.ShipOrderAsync(orderId);
-        return Ok();
-    }
-
-    [HttpGet("{orderId}/summary")]
-    public async Task<IActionResult> GetSummary(Guid orderId)
-    {
-        var summary = await _querySession.LoadAsync<OrderSummary>(orderId);
+        var summary = await _query.LoadAsync<OrderSummary>(id);
         return summary is null ? NotFound() : Ok(summary);
+    }
+
+    [HttpGet("{id:guid}/timeline")]
+    public async Task<IActionResult> GetTimeline(Guid id)
+    {
+        var timeline = await _query.Query<Infrastructure.ReadModels.OrderTimelineEntry>()
+            .Where(x => x.OrderId == id)
+            .OrderBy(x => x.OccurredAt)
+            .ToListAsync();
+
+        return Ok(timeline);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> List()
+    {
+        var summaries = await _query.Query<OrderSummary>().ToListAsync();
+        return Ok(summaries);
     }
 }
