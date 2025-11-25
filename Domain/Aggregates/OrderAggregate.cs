@@ -1,4 +1,5 @@
-﻿using Domain.Events;
+﻿using Domain.Constants;
+using Domain.Events;
 
 namespace Domain.Aggregates
 {
@@ -60,30 +61,37 @@ namespace Domain.Aggregates
         // -------------------
         public static IEnumerable<object> Create(Guid orderId, Guid customerId, string description, DateTime occurredAt)
         {
+            if (string.IsNullOrWhiteSpace(description))
+                throw new ArgumentException(ErrorMessages.InvalidDescription, nameof(description));
+
             yield return new OrderCreated(orderId, customerId, description, occurredAt);
         }
 
         public IEnumerable<object> AddItem(Guid itemId, string itemName, int quantity, DateTime occurredAt)
         {
-            if (IsShipped) throw new InvalidOperationException("Order already shipped");
-            if (IsCancelled) throw new InvalidOperationException("Order cancelled");
-            if (quantity <= 0) throw new ArgumentException("Quantity must be > 0");
+            if (IsShipped) throw new InvalidOperationException(ErrorMessages.OrderAlreadyShipped);
+            if (IsCancelled) throw new InvalidOperationException(ErrorMessages.OrderCancelled);
+            if (quantity <= 0) throw new ArgumentException(ErrorMessages.InvalidQuantity, nameof(quantity));
+            if (string.IsNullOrWhiteSpace(itemName))
+                throw new ArgumentException(ErrorMessages.InvalidItemName, nameof(itemName));
 
             yield return new OrderItemAdded(Id, itemId, itemName, quantity, occurredAt);
         }
 
         public IEnumerable<object> Ship(DateTime occurredAt)
         {
-            if (IsShipped) throw new InvalidOperationException("Order already shipped");
-            if (IsCancelled) throw new InvalidOperationException("Order cancelled");
+            if (IsShipped) throw new InvalidOperationException(ErrorMessages.OrderAlreadyShipped);
+            if (IsCancelled) throw new InvalidOperationException(ErrorMessages.OrderCancelled);
 
             yield return new OrderShipped(Id, occurredAt);
         }
 
         public IEnumerable<object> Cancel(string reason, DateTime occurredAt)
         {
-            if (IsShipped) throw new InvalidOperationException("Can't cancel shipped order");
-            if (IsCancelled) throw new InvalidOperationException("Already cancelled");
+            if (IsShipped) throw new InvalidOperationException(ErrorMessages.CannotCancelShippedOrder);
+            if (IsCancelled) throw new InvalidOperationException(ErrorMessages.OrderAlreadyCancelled);
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException(ErrorMessages.InvalidCancellationReason, nameof(reason));
 
             yield return new OrderCancelled(Id, reason, occurredAt);
         }
